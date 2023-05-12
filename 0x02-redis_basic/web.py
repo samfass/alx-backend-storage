@@ -1,32 +1,30 @@
 #!/usr/bin/env python3
-""" Redis Module """
-
-from functools import wraps
-import redis
+""" Redis with requests """
 import requests
+from functools import wraps
 from typing import Callable
+import redis
 
-redis_ = redis.Redis()
 
+def count(method: Callable):
+    """ Count the call to requests """
+    r = redis.Redis()
 
-def count_requests(method: Callable) -> Callable:
-    """ Decortator for counting """
     @wraps(method)
-    def wrapper(url):  # sourcery skip: use-named-expression
-        """ Wrapper for decorator """
-        redis_.incr(f"count:{url}")
-        cached_html = redis_.get(f"cached:{url}")
-        if cached_html:
-            return cached_html.decode('utf-8')
+    def wrapped(url):
+        """ function that will count """
+        r.incr(f"count:{url}")
+        expiration_count = r.get(f"cached:{url}")
+        if expiration_count:
+            return expiration_count.decode('utf-8')
         html = method(url)
-        redis_.setex(f"cached:{url}", 10, html)
+        r.setex(f"cached:{url}", 10, html)
         return html
 
-    return wrapper
+    return wrapped
 
 
-@count_requests
+@count
 def get_page(url: str) -> str:
-    """ Obtain the HTML content of a  URL """
-    req = requests.get(url)
-    return req.text
+    """ module to obtain the HTML """
+    return requests.get(url).text
